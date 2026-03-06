@@ -1,74 +1,88 @@
 package com.example.highfps;
 
-import android.graphics.ImageFormat;
+import android.content.Context;
+import android.graphics.Bitmap;
 import android.media.Image;
 import android.util.Log;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * FrameSaver: Encodes Image frames to TIFF format and saves to disk.
+ * FrameSaver: Manages frame storage for 240 fps raw frame capture.
  *
- * TIFF (Tag Image File Format) preserves full pixel fidelity without compression.
- * Each frame is a standalone file with sequential numbering.
+ * Creates a session folder and saves each frame as a TIFF with sequential numbering
+ * and timestamp in the filename. Converts YUV_420_888 to grayscale bitmap.
  */
 public class FrameSaver {
     private static final String TAG = "FrameSaver";
 
-    // TIFF constants
-    private static final byte[] TIFF_LITTLE_ENDIAN = new byte[] {
-        (byte) 0x49, (byte) 0x49  // "II" - Intel byte order
-    };
-    private static final byte[] TIFF_MAGIC = new byte[] {
-        (byte) 0x2A, (byte) 0x00  // 42 in little-endian (TIFF magic number)
-    };
+    private final File sessionDir;
+    private final AtomicInteger frameCount;
 
-    private final File framesFolder;
-    private long sessionStartTime;
-    private int frameCounter;
+    public FrameSaver(Context context) {
+        this.frameCount = new AtomicInteger(0);
 
-    public FrameSaver(File framesFolder) {
-        this.framesFolder = framesFolder;
-        this.frameCounter = 0;
-        this.sessionStartTime = System.currentTimeMillis();
+        // Use app external files root: /storage/emulated/0/Android/data/<package>/files/
+        File baseDir = context.getExternalFilesDir(null);
+        if (baseDir == null) {
+            throw new IllegalStateException("External files directory is not available");
+        }
+
+        // Create session directory
+        String sessionName = "session_" +
+                new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+        sessionDir = new File(baseDir, sessionName);
+
+        if (!sessionDir.exists()) {
+            sessionDir.mkdirs();
+            Log.d(TAG, "Session folder created: " + sessionDir.getAbsolutePath());
+        }
     }
 
     /**
-     * Save a single frame as TIFF file.
-     *
-     * Filename format: frame_XXXXX_<timestamp>.tiff
-     * where XXXXX is zero-padded frame number, timestamp is in milliseconds.
+     * Save a single frame as a TIFF file with timestamp in filename.
      */
-    public synchronized boolean saveFrame(Image image) {
-        if (image == null) {
-            Log.w(TAG, "Received null image");
-            return false;
-        }
-
+    public boolean saveFrame(Image image) {
         try {
-            frameCounter++;
+            int frameIndex = frameCount.incrementAndGet();
             long timestamp = System.currentTimeMillis();
-            String filename = String.format(Locale.US, "frame_%05d_%d.tiff", frameCounter, timestamp);
-            File frameFile = new File(framesFolder, filename);
 
-            // Convert Image (YUV420) to RGB
-            byte[] rgbData = convertYUVToRGB(image);
+            // Convert YUV_420_888 to grayscale bitmap
+            Bitmap bitmap = convertYuvToGrayscale(image);
 
-            // Write TIFF file
-            boolean success = writeTIFFFile(frameFile, rgbData, image.getWidth(), image.getHeight());
-
-            if (success) {
-                Log.d(TAG, "Saved frame " + frameCounter + ": " + filename);
-            } else {
-                Log.e(TAG, "Failed to write TIFF: " + filename);
+            if (bitmap == null) {
+                Log.e(TAG, "Failed to convert image to bitmap");
+                return false;
             }
 
-            return success;
+            // Generate filename with index and timestamp
+            String filename = String.format(
+                    Locale.US,
+                    "frame_%05d_%d.tiff",
+                    frameIndex,
+                    timestamp
+            );
+
+            File outputFile = new File(sessionDir, filename);
+
+            // Save as TIFF
+            boolean savedSuccess = saveBitmapAsRawTiff(bitmap, outputFile);
+
+            if (savedSuccess) {
+                Log.d(TAG, "Frame " + frameIndex + " saved: " + filename);
+            } else {
+                Log.e(TAG, "Failed to save frame " + frameIndex);
+            }
+
+            bitmap.recycle();
+            return savedSuccess;
 
         } catch (Exception e) {
             Log.e(TAG, "Error saving frame", e);
@@ -79,150 +93,144 @@ public class FrameSaver {
     }
 
     /**
-     * Convert YUV420 (standard camera format) to RGB.
-     * This is computationally expensive; consider GPU acceleration for production.
+     * Convert YUV_420_888 image to grayscale bitmap (8-bit).
      */
-    private byte[] convertYUVToRGB(Image image) {
-        int width = image.getWidth();
-        int height = image.getHeight();
+    private Bitmap convertYuvToGrayscale(Image image) {
+        try {
+            int width = image.getWidth();
+            int height = image.getHeight();
 
-        if (image.getFormat() != ImageFormat.YUV_420_888) {
-            throw new IllegalArgumentException("Expected YUV_420_888 format");
+            Image.Plane yPlane = image.getPlanes()[0];
+            ByteBuffer yBuffer = yPlane.getBuffer();
+            int rowStride = yPlane.getRowStride();
+
+            byte[] compactY = new byte[width * height];
+            for (int row = 0; row < height; row++) {
+                int srcPos = row * rowStride;
+                yBuffer.position(srcPos);
+                yBuffer.get(compactY, row * width, width);
+            }
+
+            Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ALPHA_8);
+            bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(compactY));
+            return bitmap;
+        } catch (Exception e) {
+            Log.e(TAG, "Error converting YUV to grayscale", e);
+            return null;
         }
-
-        // Get YUV planes
-        Image.Plane yPlane = image.getPlanes()[0];
-        Image.Plane uPlane = image.getPlanes()[1];
-        Image.Plane vPlane = image.getPlanes()[2];
-
-        int ySize = yPlane.getBuffer().remaining();
-        int uvSize = uPlane.getBuffer().remaining();
-
-        byte[] yData = new byte[ySize];
-        byte[] uData = new byte[uvSize];
-        byte[] vData = new byte[uvSize];
-
-        yPlane.getBuffer().get(yData);
-        uPlane.getBuffer().get(uData);
-        vPlane.getBuffer().get(vData);
-
-        // Convert YUV to RGB (BT.601 standard)
-        byte[] rgbData = new byte[width * height * 3];
-
-        int pixelCount = width * height;
-        for (int i = 0; i < pixelCount; i++) {
-            int y = yData[i] & 0xFF;
-            int u = uData[i / 4] & 0xFF;
-            int v = vData[i / 4] & 0xFF;
-
-            // BT.601 color space conversion
-            int r = (int) (y + 1.402 * (v - 128));
-            int g = (int) (y - 0.344136 * (u - 128) - 0.714136 * (v - 128));
-            int b = (int) (y + 1.772 * (u - 128));
-
-            r = Math.max(0, Math.min(255, r));
-            g = Math.max(0, Math.min(255, g));
-            b = Math.max(0, Math.min(255, b));
-
-            rgbData[i * 3] = (byte) r;
-            rgbData[i * 3 + 1] = (byte) g;
-            rgbData[i * 3 + 2] = (byte) b;
-        }
-
-        return rgbData;
     }
 
     /**
-     * Write RGB data as TIFF file (uncompressed).
-     *
-     * TIFF structure:
-     * - Header (8 bytes)
-     * - IFD (Image File Directory) with tags
-     * - Pixel data
+     * Save bitmap as a raw TIFF file.
      */
-    private boolean writeTIFFFile(File file, byte[] rgbData, int width, int height) {
-        try (FileOutputStream fos = new FileOutputStream(file)) {
+    private boolean saveBitmapAsRawTiff(Bitmap bitmap, File outputFile) {
+        try (FileOutputStream fos = new FileOutputStream(outputFile)) {
+            int width = bitmap.getWidth();
+            int height = bitmap.getHeight();
+            byte[] pixelData = new byte[width * height];
+            bitmap.copyPixelsToBuffer(ByteBuffer.wrap(pixelData));
 
-            // 1. TIFF Header
-            fos.write(TIFF_LITTLE_ENDIAN);  // Byte order (II = little-endian)
-            fos.write(TIFF_MAGIC);           // Magic number (42)
-            fos.write(toBytes(8, 4));        // Offset to first IFD
+            // Write minimal TIFF header
+            writeTiffHeader(fos, width, height, pixelData);
 
-            // 2. Image File Directory (IFD)
-            // Simplified IFD with essential tags
-            int pixelDataOffset = 8 + 2 + (12 * 10) + 4;  // Header + IFD size + pixel data offset
-
-            // Number of directory entries
-            fos.write(toBytes(10, 2));  // 10 tags
-
-            // Tag entries (each 12 bytes: tag, type, count, value/offset)
-            writeTag(fos, 0x0100, 3, 1, width);           // ImageWidth
-            writeTag(fos, 0x0101, 3, 1, height);          // ImageLength
-            writeTag(fos, 0x0102, 3, 3, pixelDataOffset); // BitsPerSample (3 samples = RGB)
-            writeTag(fos, 0x0103, 3, 1, 1);               // Compression (1 = uncompressed)
-            writeTag(fos, 0x0106, 3, 1, 2);               // PhotometricInterpretation (2 = RGB)
-            writeTag(fos, 0x0111, 4, 1, pixelDataOffset); // StripOffsets (pixel data location)
-            writeTag(fos, 0x0115, 3, 1, 3);               // SamplesPerPixel (3 for RGB)
-            writeTag(fos, 0x0116, 3, 1, height);          // RowsPerStrip
-            writeTag(fos, 0x0117, 4, 1, rgbData.length);  // StripByteCounts (image data size)
-            writeTag(fos, 0x011A, 5, 1, pixelDataOffset + rgbData.length);  // XResolution
-
-            // IFD terminator (next IFD offset = 0)
-            fos.write(toBytes(0, 4));
-
-            // 3. Pixel Data (RGB, uncompressed)
-            fos.write(rgbData);
-
+            Log.d(TAG, "Bitmap saved as TIFF: " + outputFile.getName());
             return true;
 
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to write TIFF file", e);
+        } catch (IOException e) {
+            Log.e(TAG, "Error writing TIFF file", e);
             return false;
         }
     }
 
     /**
-     * Write TIFF tag (12 bytes).
-     * Format: tag (2), type (2), count (4), value/offset (4)
+     * Write a minimal TIFF header for 8-bit grayscale image.
      */
-    private void writeTag(FileOutputStream fos, int tag, int type, int count, int value) throws Exception {
-        fos.write(toBytes(tag, 2));
-        fos.write(toBytes(type, 2));
-        fos.write(toBytes(count, 4));
-        fos.write(toBytes(value, 4));
+    private void writeTiffHeader(FileOutputStream fos, int width, int height, byte[] pixelData)
+            throws IOException {
+        // TIFF Header
+        fos.write(0x49); // 'I' - Little Endian
+        fos.write(0x49); // 'I'
+        writeShortLE(fos, (short) 42); // TIFF version
+        writeIntLE(fos, 8); // Offset to first IFD
+
+        // Image File Directory (IFD)
+        writeShortLE(fos, (short) 9); // Number of tags
+
+        // Tag 254: NewSubfileType
+        writeTag(fos, 254, 3, 1, 0);
+
+        // Tag 256: ImageWidth
+        writeTag(fos, 256, 3, 1, width);
+
+        // Tag 257: ImageLength (height)
+        writeTag(fos, 257, 3, 1, height);
+
+        // Tag 258: BitsPerSample (8-bit)
+        writeTag(fos, 258, 3, 1, 8);
+
+        // Tag 259: Compression (1 = uncompressed)
+        writeTag(fos, 259, 3, 1, 1);
+
+        // Tag 262: PhotometricInterpretation (1 = BlackIsZero)
+        writeTag(fos, 262, 3, 1, 1);
+
+        // Tag 273: StripOffsets
+        int stripOffset = 8 + 2 + (9 * 12) + 4;
+        writeTag(fos, 273, 4, 1, stripOffset);
+
+        // Tag 277: SamplesPerPixel (1 = grayscale)
+        writeTag(fos, 277, 3, 1, 1);
+
+        // Tag 279: StripByteCounts
+        writeTag(fos, 279, 4, 1, pixelData.length);
+
+        // Next IFD offset (0 = no more IFDs)
+        writeIntLE(fos, 0);
+
+        // Write pixel data
+        fos.write(pixelData);
     }
 
     /**
-     * Convert integer to little-endian byte array.
+     * Write a TIFF IFD tag entry.
      */
-    private byte[] toBytes(int value, int length) {
-        byte[] bytes = new byte[length];
-        for (int i = 0; i < length; i++) {
-            bytes[i] = (byte) ((value >> (i * 8)) & 0xFF);
-        }
-        return bytes;
+    private void writeTag(FileOutputStream fos, int tag, int type, int count, int value)
+            throws IOException {
+        writeShortLE(fos, (short) tag);
+        writeShortLE(fos, (short) type);
+        writeIntLE(fos, count);
+        writeIntLE(fos, value);
     }
 
     /**
-     * Get current frame counter.
+     * Write a 16-bit value in little-endian format.
+     */
+    private void writeShortLE(FileOutputStream fos, short value) throws IOException {
+        fos.write((value) & 0xFF);
+        fos.write((value >> 8) & 0xFF);
+    }
+
+    /**
+     * Write a 32-bit value in little-endian format.
+     */
+    private void writeIntLE(FileOutputStream fos, int value) throws IOException {
+        fos.write((value) & 0xFF);
+        fos.write((value >> 8) & 0xFF);
+        fos.write((value >> 16) & 0xFF);
+        fos.write((value >> 24) & 0xFF);
+    }
+
+    /**
+     * Get the total number of frames saved.
      */
     public int getFrameCount() {
-        return frameCounter;
+        return frameCount.get();
     }
 
     /**
-     * Get elapsed time since session start (milliseconds).
+     * Get the session directory path.
      */
-    public long getElapsedTime() {
-        return System.currentTimeMillis() - sessionStartTime;
-    }
-
-    /**
-     * Reset session (for new recording).
-     */
-    public void resetSession() {
-        frameCounter = 0;
-        sessionStartTime = System.currentTimeMillis();
+    public File getSessionDir() {
+        return sessionDir;
     }
 }
-

@@ -48,7 +48,7 @@ public class CameraPreviewView extends TextureView implements TextureView.Surfac
     }
 
     @Override
-    public void onSurfaceTextureFrameAvailable(SurfaceTexture surface) {
+    public void onSurfaceTextureUpdated(SurfaceTexture surface) {
     }
 
     public void notifyPreviewUnavailable() {
@@ -57,4 +57,3 @@ public class CameraPreviewView extends TextureView implements TextureView.Surfac
         }
     }
 }
-

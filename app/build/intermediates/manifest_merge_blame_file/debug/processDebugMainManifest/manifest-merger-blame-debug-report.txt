@@ -1,0 +1,152 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.example.highfps"
+4    android:versionCode="1"
+5    android:versionName="1.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="29"
+9        android:targetSdkVersion="34" />
+10
+11    <uses-permission android:name="android.permission.CAMERA" />
+11-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:4:5-65
+11-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:4:22-62
+12    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+12-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:5:5-71
+12-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:5:22-68
+13    <uses-permission
+13-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:6:5-8:38
+14        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+14-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:7:9-65
+15        android:maxSdkVersion="28" />
+15-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:8:9-35
+16    <uses-permission
+16-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:9:5-11:38
+17        android:name="android.permission.READ_EXTERNAL_STORAGE"
+17-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:10:9-64
+18        android:maxSdkVersion="28" />
+18-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:11:9-35
+19
+20    <uses-feature
+20-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:13:5-15:35
+21        android:name="android.hardware.camera.any"
+21-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:14:9-51
+22        android:required="true" />
+22-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:15:9-32
+23
+24    <permission
+24-->[androidx.core:core:1.13.0] /home/fmea01/.gradle/caches/8.13/transforms/0a442df3b823586b7b45366d3f7198cf/transformed/core-1.13.0/AndroidManifest.xml:22:5-24:47
+25        android:name="com.example.highfps.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+25-->[androidx.core:core:1.13.0] /home/fmea01/.gradle/caches/8.13/transforms/0a442df3b823586b7b45366d3f7198cf/transformed/core-1.13.0/AndroidManifest.xml:23:9-81
+26        android:protectionLevel="signature" />
+26-->[androidx.core:core:1.13.0] /home/fmea01/.gradle/caches/8.13/transforms/0a442df3b823586b7b45366d3f7198cf/transformed/core-1.13.0/AndroidManifest.xml:24:9-44
+27
+28    <uses-permission android:name="com.example.highfps.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+28-->[androidx.core:core:1.13.0] /home/fmea01/.gradle/caches/8.13/transforms/0a442df3b823586b7b45366d3f7198cf/transformed/core-1.13.0/AndroidManifest.xml:26:5-97
+28-->[androidx.core:core:1.13.0] /home/fmea01/.gradle/caches/8.13/transforms/0a442df3b823586b7b45366d3f7198cf/transformed/core-1.13.0/AndroidManifest.xml:26:22-94
+29
+30    <application
+30-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:17:5-33:19
+31        android:allowBackup="true"
+31-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:18:9-35
+32        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+32-->[androidx.core:core:1.13.0] /home/fmea01/.gradle/caches/8.13/transforms/0a442df3b823586b7b45366d3f7198cf/transformed/core-1.13.0/AndroidManifest.xml:28:18-86
+33        android:dataExtractionRules="@xml/data_extraction_rules"
+33-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:19:9-65
+34        android:debuggable="true"
+35        android:extractNativeLibs="false"
+36        android:fullBackupContent="@xml/backup_rules"
+36-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:20:9-54
+37        android:label="@string/app_name"
+37-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:21:9-41
+38        android:supportsRtl="true"
+38-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:22:9-35
+39        android:testOnly="true"
+40        android:theme="@style/Theme.HighFPSRecorder" >
+40-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:23:9-53
+41        <activity
+41-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:24:9-32:20
+42            android:name="com.example.highfps.MainActivity"
+42-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:25:13-41
+43            android:exported="true" >
+43-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:26:13-36
+44            <intent-filter>
+44-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:27:13-31:29
+45                <action android:name="android.intent.action.MAIN" />
+45-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:28:17-69
+45-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:28:25-66
+46
+47                <category android:name="android.intent.category.LAUNCHER" />
+47-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:30:17-77
+47-->/home/fmea01/Downloads/PREMSAITEJA/HighFPSRecorder/app/src/main/AndroidManifest.xml:30:27-74
+48            </intent-filter>
+49        </activity>
+50
+51        <provider
+51-->[androidx.emoji2:emoji2:1.3.0] /home/fmea01/.gradle/caches/8.13/transforms/957712a3dad3fddbc6d0281791ca548c/transformed/emoji2-1.3.0/AndroidManifest.xml:24:9-32:20
+52            android:name="androidx.startup.InitializationProvider"
+52-->[androidx.emoji2:emoji2:1.3.0] /home/fmea01/.gradle/caches/8.13/transforms/957712a3dad3fddbc6d0281791ca548c/transformed/emoji2-1.3.0/AndroidManifest.xml:25:13-67
+53            android:authorities="com.example.highfps.androidx-startup"
+53-->[androidx.emoji2:emoji2:1.3.0] /home/fmea01/.gradle/caches/8.13/transforms/957712a3dad3fddbc6d0281791ca548c/transformed/emoji2-1.3.0/AndroidManifest.xml:26:13-68
+54            android:exported="false" >
+54-->[androidx.emoji2:emoji2:1.3.0] /home/fmea01/.gradle/caches/8.13/transforms/957712a3dad3fddbc6d0281791ca548c/transformed/emoji2-1.3.0/AndroidManifest.xml:27:13-37
+55            <meta-data
+55-->[androidx.emoji2:emoji2:1.3.0] /home/fmea01/.gradle/caches/8.13/transforms/957712a3dad3fddbc6d0281791ca548c/transformed/emoji2-1.3.0/AndroidManifest.xml:29:13-31:52
+56                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+56-->[androidx.emoji2:emoji2:1.3.0] /home/fmea01/.gradle/caches/8.13/transforms/957712a3dad3fddbc6d0281791ca548c/transformed/emoji2-1.3.0/AndroidManifest.xml:30:17-75
+57                android:value="androidx.startup" />
+57-->[androidx.emoji2:emoji2:1.3.0] /home/fmea01/.gradle/caches/8.13/transforms/957712a3dad3fddbc6d0281791ca548c/transformed/emoji2-1.3.0/AndroidManifest.xml:31:17-49
+58            <meta-data
+58-->[androidx.lifecycle:lifecycle-process:2.6.2] /home/fmea01/.gradle/caches/8.13/transforms/373767f4b1c1e9e2b89adf3a94391966/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:29:13-31:52
+59                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+59-->[androidx.lifecycle:lifecycle-process:2.6.2] /home/fmea01/.gradle/caches/8.13/transforms/373767f4b1c1e9e2b89adf3a94391966/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:30:17-78
+60                android:value="androidx.startup" />
+60-->[androidx.lifecycle:lifecycle-process:2.6.2] /home/fmea01/.gradle/caches/8.13/transforms/373767f4b1c1e9e2b89adf3a94391966/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:31:17-49
+61            <meta-data
+61-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:29:13-31:52
+62                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+62-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:30:17-85
+63                android:value="androidx.startup" />
+63-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:31:17-49
+64        </provider>
+65
+66        <receiver
+66-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:34:9-52:20
+67            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+67-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:35:13-76
+68            android:directBootAware="false"
+68-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:36:13-44
+69            android:enabled="true"
+69-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:37:13-35
+70            android:exported="true"
+70-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:38:13-36
+71            android:permission="android.permission.DUMP" >
+71-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:39:13-57
+72            <intent-filter>
+72-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:40:13-42:29
+73                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+73-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:17-91
+73-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:25-88
+74            </intent-filter>
+75            <intent-filter>
+75-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:43:13-45:29
+76                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+76-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:17-85
+76-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:25-82
+77            </intent-filter>
+78            <intent-filter>
+78-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:46:13-48:29
+79                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+79-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:17-88
+79-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:25-85
+80            </intent-filter>
+81            <intent-filter>
+81-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:49:13-51:29
+82                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+82-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:17-95
+82-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/fmea01/.gradle/caches/8.13/transforms/2a6ea1135e45d34ee1c3895c1246098f/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:25-92
+83            </intent-filter>
+84        </receiver>
+85    </application>
+86
+87</manifest>

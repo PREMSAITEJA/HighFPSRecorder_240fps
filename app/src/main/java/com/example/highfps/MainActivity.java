@@ -3,20 +3,26 @@ package com.example.highfps;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.ImageFormat;
+import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
-import android.media.MediaRecorder;
+import android.media.Image;
+import android.media.ImageReader;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
 import android.util.Range;
+import android.view.Surface;
+import android.view.TextureView;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -24,32 +30,37 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import java.io.File;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "HighFPSRecorder";
     private static final int REQUEST_CODE_PERMISSIONS = 200;
     private static final int DESIRED_FPS = 240;
+    private static final int CAPTURE_WIDTH = 1920;
+    private static final int CAPTURE_HEIGHT = 1080;
+    private static final int IMAGE_READER_BUFFER = 10;
 
     private Button btnRecord;
+    private Button btnStop;
+    private TextureView textureView;
+    private TextView tvFrameCount;
 
     private CameraDevice cameraDevice;
     private CameraCaptureSession captureSession;
-    private MediaRecorder mediaRecorder;
+    private ImageReader imageReader;
+    private FrameSaver frameSaver;
+
     private HandlerThread cameraThread;
+    private HandlerThread frameThread;
     private Handler cameraHandler;
+    private Handler frameHandler;
+    private Handler uiHandler;
 
     private String activeCameraId;
     private Range<Integer> activeFpsRange;
-    private File outputFile;
-    private boolean isRecording;
+    private volatile boolean isRecording;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,245 +68,70 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         btnRecord = findViewById(R.id.btnRecord);
-        btnRecord.setOnClickListener(v -> {
-            if (isRecording) {
-                stopRecording();
-            } else {
-                startCamera();
+        btnStop = findViewById(R.id.btnStop);
+        textureView = findViewById(R.id.textureView);
+        tvFrameCount = findViewById(R.id.tvFrameCount);
+
+        btnRecord.setOnClickListener(v -> startRecording());
+        btnStop.setOnClickListener(v -> stopRecording());
+        btnStop.setEnabled(false);
+
+        uiHandler = new Handler(getMainLooper());
+
+        textureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+            @Override
+            public void onSurfaceTextureAvailable(@NonNull SurfaceTexture surface, int width, int height) {
+                // Surface ready for camera preview
+            }
+
+            @Override
+            public void onSurfaceTextureSizeChanged(@NonNull SurfaceTexture surface, int width, int height) {
+            }
+
+            @Override
+            public boolean onSurfaceTextureDestroyed(@NonNull SurfaceTexture surface) {
+                return true;
+            }
+
+            @Override
+            public void onSurfaceTextureUpdated(@NonNull SurfaceTexture surface) {
             }
         });
-
-        Button btnInfo = findViewById(R.id.btnInfo);
-        btnInfo.setOnClickListener(v -> showCameraInfo());
     }
 
-    private void showCameraInfo() {
-        CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
-        try {
-            String[] cameraIds = manager.getCameraIdList();
-            if (cameraIds.length == 0) {
-                Toast.makeText(this, "No cameras available", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            String cameraId = cameraIds[0];
-            String info = CameraInfoFormatter.formatCameraInfo(manager, cameraId);
-            Toast.makeText(this, info, Toast.LENGTH_LONG).show();
-            Log.d(TAG, "Camera Info:\n" + info);
-        } catch (Exception e) {
-            Log.e(TAG, "Unable to get camera info", e);
-            Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+    private void startRecording() {
+        if (isRecording) {
+            return;
         }
-    }
 
-    private void startCamera() {
         if (!hasRequiredPermissions()) {
             ActivityCompat.requestPermissions(this, getRequiredPermissions(), REQUEST_CODE_PERMISSIONS);
             return;
         }
 
         startCameraThread();
+        startFrameThread();
 
         CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
         try {
             CameraSelection selection = selectCamera(manager);
             activeCameraId = selection.cameraId;
             activeFpsRange = selection.fpsRange;
+            frameSaver = new FrameSaver(this);
 
-            Log.d(TAG, "Using camera=" + activeCameraId + " with FPS range=" + activeFpsRange);
+            Log.i(TAG, "Selected camera=" + activeCameraId + ", fpsRange=" + activeFpsRange);
 
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                     != PackageManager.PERMISSION_GRANTED) {
                 return;
             }
-            manager.openCamera(activeCameraId, stateCallback, cameraHandler);
-        } catch (CameraAccessException e) {
-            Log.e(TAG, "Unable to open camera", e);
-            Toast.makeText(this, "Camera open failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
-            stopCameraThread();
-        }
-    }
-
-    private CameraSelection selectCamera(CameraManager manager) throws CameraAccessException {
-        String[] cameraIds = manager.getCameraIdList();
-        String fallbackCameraId = cameraIds[0];
-
-        for (String cameraId : cameraIds) {
-            CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
-            Integer lensFacing = characteristics.get(CameraCharacteristics.LENS_FACING);
-            if (lensFacing != null && lensFacing == CameraCharacteristics.LENS_FACING_BACK) {
-                fallbackCameraId = cameraId;
-                break;
-            }
-        }
-
-        CameraCharacteristics characteristics = manager.getCameraCharacteristics(fallbackCameraId);
-        Range<Integer>[] fpsRanges =
-                characteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
-
-        List<int[]> ranges = new ArrayList<>();
-        if (fpsRanges != null) {
-            for (Range<Integer> range : fpsRanges) {
-                ranges.add(new int[] {range.getLower(), range.getUpper()});
-                Log.d(TAG, "Supported FPS range: " + range);
-            }
-        }
-
-        int[] picked = FpsSelector.pickBestRange(ranges, DESIRED_FPS);
-        Range<Integer> selectedRange = new Range<>(picked[0], picked[1]);
-        return new CameraSelection(fallbackCameraId, selectedRange);
-    }
-
-    private void startRecording() {
-        if (cameraDevice == null) {
-            Toast.makeText(this, "Camera is not ready", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        try {
-            setupMediaRecorder();
-            Surface recorderSurface = mediaRecorder.getSurface();
-
-            // Try high-speed session first
-            if (supportsHighSpeedRecording()) {
-                startHighSpeedRecording(recorderSurface);
-            } else {
-                startStandardRecording(recorderSurface);
-            }
+            manager.openCamera(activeCameraId, cameraStateCallback, cameraHandler);
         } catch (Exception e) {
             Log.e(TAG, "Unable to start recording", e);
-            Toast.makeText(this, "Start recording failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
-            safeReleaseRecorder();
+            Toast.makeText(this, "Start failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            stopCameraThread();
+            stopFrameThread();
         }
-    }
-
-    private boolean supportsHighSpeedRecording() {
-        try {
-            CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
-            CameraCharacteristics characteristics = manager.getCameraCharacteristics(activeCameraId);
-            int[] capabilities =
-                    characteristics.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES);
-            if (capabilities != null) {
-                for (int cap : capabilities) {
-                    if (cap == CameraCharacteristics
-                            .REQUEST_AVAILABLE_CAPABILITIES_CONSTRAINED_HIGH_SPEED_VIDEO) {
-                        Log.d(TAG, "Device supports high-speed video");
-                        return true;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "Unable to check high-speed capability", e);
-        }
-        return false;
-    }
-
-    private void startHighSpeedRecording(Surface recorderSurface) throws CameraAccessException {
-        Log.d(TAG, "Starting high-speed recording session...");
-        CaptureRequest.Builder builder =
-                cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
-        builder.addTarget(recorderSurface);
-        builder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, activeFpsRange);
-
-        cameraDevice.createCaptureSession(
-                Arrays.asList(recorderSurface),
-                new CameraCaptureSession.StateCallback() {
-                    @Override
-                    public void onConfigured(@NonNull CameraCaptureSession session) {
-                        captureSession = session;
-                        try {
-                            captureSession.setRepeatingRequest(builder.build(), null, cameraHandler);
-                            mediaRecorder.start();
-                            isRecording = true;
-                            runOnUiThread(() -> {
-                                btnRecord.setText(getString(R.string.stop_recording));
-                                Toast.makeText(
-                                        MainActivity.this,
-                                        "Recording (High-Speed): " + outputFile.getAbsolutePath(),
-                                        Toast.LENGTH_SHORT
-                                ).show();
-                            });
-                        } catch (CameraAccessException e) {
-                            Log.e(TAG, "Capture session failed", e);
-                            safeReleaseRecorder();
-                        }
-                    }
-
-                    @Override
-                    public void onConfigureFailed(@NonNull CameraCaptureSession session) {
-                        Log.w(TAG, "High-speed session config failed, falling back to standard");
-                        try {
-                            startStandardRecording(recorderSurface);
-                        } catch (Exception ex) {
-                            Toast.makeText(MainActivity.this, "Session config failed", Toast.LENGTH_SHORT)
-                                    .show();
-                            safeReleaseRecorder();
-                        }
-                    }
-                },
-                cameraHandler
-        );
-    }
-
-    private void startStandardRecording(Surface recorderSurface) throws CameraAccessException {
-        Log.d(TAG, "Starting standard recording session...");
-        CaptureRequest.Builder builder =
-                cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
-        builder.addTarget(recorderSurface);
-        builder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, activeFpsRange);
-
-        cameraDevice.createCaptureSession(
-                Arrays.asList(recorderSurface),
-                new CameraCaptureSession.StateCallback() {
-                    @Override
-                    public void onConfigured(@NonNull CameraCaptureSession session) {
-                        captureSession = session;
-                        try {
-                            captureSession.setRepeatingRequest(builder.build(), null, cameraHandler);
-                            mediaRecorder.start();
-                            isRecording = true;
-                            runOnUiThread(() -> {
-                                btnRecord.setText(getString(R.string.stop_recording));
-                                Toast.makeText(
-                                        MainActivity.this,
-                                        "Recording: " + outputFile.getAbsolutePath(),
-                                        Toast.LENGTH_SHORT
-                                ).show();
-                            });
-                        } catch (CameraAccessException e) {
-                            Log.e(TAG, "Capture session failed", e);
-                            safeReleaseRecorder();
-                        }
-                    }
-
-                    @Override
-                    public void onConfigureFailed(@NonNull CameraCaptureSession session) {
-                        Toast.makeText(MainActivity.this, "Session config failed", Toast.LENGTH_SHORT)
-                                .show();
-                        safeReleaseRecorder();
-                    }
-                },
-                cameraHandler
-        );
-    }
-
-    private void setupMediaRecorder() throws IOException {
-        safeReleaseRecorder();
-
-        mediaRecorder = new MediaRecorder();
-        mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-        mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-        mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-
-        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
-        outputFile = new File(getExternalFilesDir(null), "output_" + timestamp + "_240fps.mp4");
-
-        mediaRecorder.setOutputFile(outputFile.getAbsolutePath());
-        mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-        mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-        mediaRecorder.setVideoSize(1920, 1080);
-        mediaRecorder.setVideoFrameRate(DESIRED_FPS);
-        mediaRecorder.setVideoEncodingBitRate(20_000_000);
-        mediaRecorder.prepare();
     }
 
     private void stopRecording() {
@@ -303,28 +139,190 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        isRecording = false;
+        stopFrameCountUpdates();
+
         try {
             if (captureSession != null) {
                 captureSession.stopRepeating();
                 captureSession.abortCaptures();
             }
         } catch (CameraAccessException e) {
-            Log.w(TAG, "Unable to stop repeating request", e);
+            Log.w(TAG, "Unable to stop capture cleanly", e);
         }
-
-        try {
-            mediaRecorder.stop();
-        } catch (RuntimeException e) {
-            Log.e(TAG, "Recorder stopped before receiving enough data", e);
-        }
-
-        isRecording = false;
-        btnRecord.setText(getString(R.string.start_recording));
-        Toast.makeText(this, "Saved to: " + outputFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
 
         closeCameraObjects();
-        safeReleaseRecorder();
         stopCameraThread();
+        stopFrameThread();
+
+        setRecordingUiState(false);
+
+        int total = frameSaver != null ? frameSaver.getFrameCount() : 0;
+        String message = "Recording stopped. Total frames dumped: " + total;
+        Log.i(TAG, message);
+        showToastOnUiThread(message);
+        if (frameSaver != null) {
+            showToastOnUiThread("Saved to: " + frameSaver.getSessionDir().getAbsolutePath());
+        }
+    }
+
+    private CameraSelection selectCamera(CameraManager manager) throws CameraAccessException {
+        String[] cameraIds = manager.getCameraIdList();
+        if (cameraIds.length == 0) {
+            throw new CameraAccessException(CameraAccessException.CAMERA_ERROR, "No camera found");
+        }
+
+        String selectedId = cameraIds[0];
+        for (String cameraId : cameraIds) {
+            CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
+            Integer lensFacing = characteristics.get(CameraCharacteristics.LENS_FACING);
+            if (lensFacing != null && lensFacing == CameraCharacteristics.LENS_FACING_BACK) {
+                selectedId = cameraId;
+                break;
+            }
+        }
+
+        CameraCharacteristics characteristics = manager.getCameraCharacteristics(selectedId);
+        Range<Integer>[] fpsRanges =
+                characteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
+
+        List<int[]> ranges = new ArrayList<>();
+        if (fpsRanges != null) {
+            for (Range<Integer> range : fpsRanges) {
+                Log.d(TAG, "Supported FPS range: " + range);
+                ranges.add(new int[] {range.getLower(), range.getUpper()});
+            }
+        }
+
+        int[] picked = FpsSelector.pickBestRange(ranges, DESIRED_FPS);
+        Range<Integer> selectedRange = new Range<>(picked[0], picked[1]);
+        return new CameraSelection(selectedId, selectedRange);
+    }
+
+    private void startFrameCapture() {
+        try {
+            imageReader = ImageReader.newInstance(
+                    CAPTURE_WIDTH,
+                    CAPTURE_HEIGHT,
+                    ImageFormat.YUV_420_888,
+                    IMAGE_READER_BUFFER
+            );
+
+            imageReader.setOnImageAvailableListener(reader -> {
+                Image image = reader.acquireNextImage();
+                if (image == null) {
+                    return;
+                }
+
+                if (!isRecording || frameSaver == null || frameHandler == null) {
+                    image.close();
+                    return;
+                }
+
+                frameHandler.post(() -> frameSaver.saveFrame(image));
+            }, cameraHandler);
+
+            // Get preview surface
+            SurfaceTexture surfaceTexture = textureView.getSurfaceTexture();
+            if (surfaceTexture == null) {
+                Log.e(TAG, "SurfaceTexture not ready");
+                return;
+            }
+            surfaceTexture.setDefaultBufferSize(CAPTURE_WIDTH, CAPTURE_HEIGHT);
+            Surface previewSurface = new Surface(surfaceTexture);
+            Surface readerSurface = imageReader.getSurface();
+
+            CaptureRequest.Builder builder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+            builder.addTarget(previewSurface);
+            builder.addTarget(readerSurface);
+            builder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, activeFpsRange);
+
+            cameraDevice.createCaptureSession(
+                    Arrays.asList(previewSurface, readerSurface),
+                    new CameraCaptureSession.StateCallback() {
+                        @Override
+                        public void onConfigured(@NonNull CameraCaptureSession session) {
+                            captureSession = session;
+                            try {
+                                session.setRepeatingRequest(builder.build(), null, cameraHandler);
+                                isRecording = true;
+                                setRecordingUiState(true);
+                                showToastOnUiThread("Recording started at " + activeFpsRange);
+                                startFrameCountUpdates();
+                            } catch (CameraAccessException e) {
+                                Log.e(TAG, "Unable to start repeating request", e);
+                                showToastOnUiThread("Start capture failed");
+                                closeCameraObjects();
+                            }
+                        }
+
+                        @Override
+                        public void onConfigureFailed(@NonNull CameraCaptureSession session) {
+                            showToastOnUiThread("Capture session config failed");
+                            closeCameraObjects();
+                        }
+                    },
+                    cameraHandler
+            );
+        } catch (Exception e) {
+            Log.e(TAG, "Unable to configure frame capture", e);
+            Toast.makeText(this, "Capture setup failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            closeCameraObjects();
+        }
+    }
+
+    private final CameraDevice.StateCallback cameraStateCallback = new CameraDevice.StateCallback() {
+        @Override
+        public void onOpened(@NonNull CameraDevice camera) {
+            cameraDevice = camera;
+            startFrameCapture();
+        }
+
+        @Override
+        public void onDisconnected(@NonNull CameraDevice camera) {
+            camera.close();
+            cameraDevice = null;
+        }
+
+        @Override
+        public void onError(@NonNull CameraDevice camera, int error) {
+            camera.close();
+            cameraDevice = null;
+            showToastOnUiThread("Camera error: " + error);
+        }
+    };
+
+    private void setRecordingUiState(boolean recording) {
+        runOnUiThread(() -> {
+            btnRecord.setEnabled(!recording);
+            btnStop.setEnabled(recording);
+            if (!recording) {
+                tvFrameCount.setText("Frames: 0");
+            }
+        });
+    }
+
+    private void showToastOnUiThread(String message) {
+        runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show());
+    }
+
+    private Runnable frameCountUpdater = new Runnable() {
+        @Override
+        public void run() {
+            if (isRecording && frameSaver != null) {
+                int count = frameSaver.getFrameCount();
+                tvFrameCount.setText("Frames: " + count);
+                uiHandler.postDelayed(this, 100); // Update every 100ms
+            }
+        }
+    };
+
+    private void startFrameCountUpdates() {
+        uiHandler.post(frameCountUpdater);
+    }
+
+    private void stopFrameCountUpdates() {
+        uiHandler.removeCallbacks(frameCountUpdater);
     }
 
     private boolean hasRequiredPermissions() {
@@ -339,7 +337,6 @@ public class MainActivity extends AppCompatActivity {
     private String[] getRequiredPermissions() {
         List<String> permissions = new ArrayList<>();
         permissions.add(Manifest.permission.CAMERA);
-        permissions.add(Manifest.permission.RECORD_AUDIO);
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
             permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE);
             permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
@@ -361,52 +358,22 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
         }
-        startCamera();
+        startRecording();
     }
-
-    private final CameraDevice.StateCallback stateCallback = new CameraDevice.StateCallback() {
-        @Override
-        public void onOpened(@NonNull CameraDevice camera) {
-            cameraDevice = camera;
-            startRecording();
-        }
-
-        @Override
-        public void onDisconnected(@NonNull CameraDevice camera) {
-            camera.close();
-            cameraDevice = null;
-        }
-
-        @Override
-        public void onError(@NonNull CameraDevice camera, int error) {
-            camera.close();
-            cameraDevice = null;
-            Toast.makeText(MainActivity.this, "Camera error: " + error, Toast.LENGTH_SHORT).show();
-        }
-    };
 
     private void closeCameraObjects() {
         if (captureSession != null) {
             captureSession.close();
             captureSession = null;
         }
+        if (imageReader != null) {
+            imageReader.close();
+            imageReader = null;
+        }
         if (cameraDevice != null) {
             cameraDevice.close();
             cameraDevice = null;
         }
-    }
-
-    private void safeReleaseRecorder() {
-        if (mediaRecorder == null) {
-            return;
-        }
-        try {
-            mediaRecorder.reset();
-        } catch (Exception ignored) {
-            // No-op: reset can throw if recorder was never fully initialized.
-        }
-        mediaRecorder.release();
-        mediaRecorder = null;
     }
 
     private void startCameraThread() {
@@ -432,14 +399,37 @@ public class MainActivity extends AppCompatActivity {
         cameraHandler = null;
     }
 
+    private void startFrameThread() {
+        if (frameThread != null) {
+            return;
+        }
+        frameThread = new HandlerThread("FrameThread");
+        frameThread.start();
+        frameHandler = new Handler(frameThread.getLooper());
+    }
+
+    private void stopFrameThread() {
+        if (frameThread == null) {
+            return;
+        }
+        frameThread.quitSafely();
+        try {
+            frameThread.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        frameThread = null;
+        frameHandler = null;
+    }
+
     @Override
     protected void onPause() {
         if (isRecording) {
             stopRecording();
         } else {
             closeCameraObjects();
-            safeReleaseRecorder();
             stopCameraThread();
+            stopFrameThread();
         }
         super.onPause();
     }

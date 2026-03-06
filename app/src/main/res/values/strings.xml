@@ -1,8 +1,5 @@
 <resources>
     <string name="app_name">HighFPSRecorder</string>
-    <string name="start_recording">Start 240fps Recording</string>
+    <string name="start_recording">Start Recording</string>
     <string name="stop_recording">Stop Recording</string>
-    <string name="camera_info">Camera Info</string>
-    <string name="preview_unavailable">Preview unavailable (permissions needed)</string>
 </resources>
-

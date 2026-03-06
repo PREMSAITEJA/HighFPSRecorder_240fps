@@ -1,0 +1,15 @@
+R_DEF: Internal format may change without notice
+local
+color black
+color white
+id btnRecord
+id btnStop
+id textureView
+id tvFrameCount
+layout activity_main
+string app_name
+string start_recording
+string stop_recording
+style Theme.HighFPSRecorder
+xml backup_rules
+xml data_extraction_rules

@@ -40,7 +40,8 @@ public class FrameProcessor implements ImageReader.OnImageAvailableListener {
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(),
             r -> {
-                Thread t = new Thread(r, "FrameEncoder-" + t.getId());
+                Thread t = new Thread(r);
+                t.setName("FrameEncoder-" + t.getId());
                 t.setPriority(Thread.MAX_PRIORITY);
                 return t;
             }
@@ -163,4 +164,3 @@ public class FrameProcessor implements ImageReader.OnImageAvailableListener {
         }
     }
 }
-
