@@ -1,7 +1,6 @@
 package com.example.highfps;
 
 import android.content.Context;
-import android.os.Environment;
 import android.util.Log;
 
 import java.io.File;
@@ -9,8 +8,8 @@ import java.io.File;
 /**
  * StorageManager: Manages frame output folder creation and path management.
  *
- * Uses app-specific external storage (scoped storage compatible):
- * /Android/data/com.example.highfps/files/frames/
+ * Uses app-specific external media storage (scoped storage compatible):
+ * /Android/media/com.example.highfps/frames/
  */
 public class StorageManager {
     private static final String TAG = "StorageManager";
@@ -31,15 +30,20 @@ public class StorageManager {
      */
     public boolean initFramesDirectory() {
         try {
-            // Get app-specific external storage (no runtime permission needed)
-            File externalFilesDir = context.getExternalFilesDir(null);
+            // Get app-specific external media storage (no runtime permission needed)
+            File[] mediaDirs = context.getExternalMediaDirs();
 
-            if (externalFilesDir == null) {
-                Log.e(TAG, "External storage not available");
+            if (mediaDirs == null) {
+                Log.e(TAG, "getExternalMediaDirs() returned null");
+                return false;
+            }
+            if (mediaDirs.length == 0 || mediaDirs[0] == null) {
+                Log.e(TAG, "No external media directory available");
                 return false;
             }
 
-            framesDir = new File(externalFilesDir, FRAMES_FOLDER);
+            File externalMediaDir = mediaDirs[0];
+            framesDir = new File(externalMediaDir, FRAMES_FOLDER);
 
             // Create directory if it doesn't exist
             if (!framesDir.exists()) {

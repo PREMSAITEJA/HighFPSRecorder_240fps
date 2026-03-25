@@ -29,11 +29,15 @@ public class FrameSaver {
     public FrameSaver(Context context) {
         this.frameCount = new AtomicInteger(0);
 
-        // Use app external files root: /storage/emulated/0/Android/data/<package>/files/
-        File baseDir = context.getExternalFilesDir(null);
-        if (baseDir == null) {
-            throw new IllegalStateException("External files directory is not available");
+        // Use app external media root: /storage/emulated/0/Android/media/<package>/
+        File[] mediaDirs = context.getExternalMediaDirs();
+        if (mediaDirs == null) {
+            throw new IllegalStateException("getExternalMediaDirs() returned null");
         }
+        if (mediaDirs.length == 0 || mediaDirs[0] == null) {
+            throw new IllegalStateException("No external media directory available");
+        }
+        File baseDir = mediaDirs[0];
 
         // Create session directory
         String sessionName = "session_" +
